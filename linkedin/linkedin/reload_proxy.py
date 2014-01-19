@@ -36,19 +36,19 @@ class ProxyResource:
         proxy_urls.append("http://www.cnproxy.com/proxy8.html");
         proxy_urls.append("http://www.cnproxy.com/proxy9.html");
         proxy_urls.append("http://www.cnproxy.com/proxy10.html");
-        p_proxy2 = re.compile("<tr><td>(\\d+\\.\\d+\\.\\d+\\.\\d+)<SCRIPT type=text/javascript>[^<]+?</SCRIPT></td><td>(.+?)</td><td>")
+        p_proxy2 = re.compile("<tr><td>(\\d+\\.\\d+\\.\\d+\\.\\d+)<SCRIPT type=text/javascript>document\.write\(\":\"([^\)]+?)\)</SCRIPT></td><td>(.+?)</td><td>[^<]+?</td><td>(.+?)</td>")
 
         proxies = []
-        for port in psource_ports:
-            page = 0
-            hasNext = True
-            while hasNext:
-                page += 1
-                purl = psource_template % (port, page)
-                hasNext = self.__loadProxyFromURL(proxies, purl, p_proxy)
-        # load from 2 place
-        #        for url in proxy_urls:
-        #            self.__loadProxyFromURL2(url, p_proxy2)
+        #for port in psource_ports:
+        #    page = 0
+        #    hasNext = True
+        #    while hasNext:
+        #        page += 1
+        #        purl = psource_template % (port, page)
+        #        hasNext = self.__loadProxyFromURL(proxies, purl, p_proxy)
+        #load from 2 place
+        for url in proxy_urls:
+            self.__loadProxyFromURL2(proxies, url, p_proxy2)
 
         return proxies
 
@@ -70,8 +70,8 @@ class ProxyResource:
             for x in results:
                 result = x.split(":")
                 print "hi " + x
-                ip = result[0]
-                port = result[1]
+                ip = result[0]                
+                port = result[1]                
                 print "length:%s ip:%s  port:%s " % (len(result), ip, port)        
                 model = ProxyModel(ip, port, "proxyServer")
                 proxies.append(model)
@@ -103,6 +103,25 @@ class ProxyResource:
         print "---proxyloader---:load proxy from %s (get %s)" % (url, count)
         return foundNextPage
 
+    def __loadProxyFromURL2(self, proxies, url, pattern):
+        '''Put model into ProxyModel, return proxies'''
+        print "---proxyloader---:load proxy from %s" % url
+        source = self.html_getter.getHtmlRetry(url, 3)
+        source = unicode(source, "gbk").encode("UTF-8")
+
+        results = pattern.findall(source)
+        count = 0
+        if results is not None:
+            for result in results:
+                ip = result[0]
+                #v="3";m="4";a="2";l="9";q="0";b="5";i="7";w="6";r="8";c="1";
+                port = result[1].replace("+","").replace("c","1").replace("a","2").replace("v","3").replace("m","4").replace("b","5").replace("w","6").replace("i","7").replace("r","8").replace("l","9").replace("q","0")
+                model = ProxyModel(ip, port, result[2].strip().lower())
+                model.location = result[3]
+                model.validate_date = ""
+                proxies.append(model)
+                count += 1
+        print "---proxyloader---:load proxy from %s (get %s)" % (url, count)
 
     def saveToFile(self, file_abspath, proxies):
         '''Save list of ProxyModel in a file.'''
